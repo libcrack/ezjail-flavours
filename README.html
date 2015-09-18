@@ -168,9 +168,9 @@
 </li>
 <li>
 <p>Rename the ezjail post-installation script and variables<br />
-    <div class="codehilite"><pre>mv /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.default \
+    <div class="codehilite"><pre>mv /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.default <span class="se">\</span>
     /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
-sed -i &#39;&#39; -s &#39;s/default/myflavour/g&#39; \
+sed -i <span class="s1">&#39;&#39;</span> -s <span class="s1">&#39;s/default/myflavour/g&#39;</span> <span class="se">\</span>
     /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
 </pre></div>
 </p>
@@ -183,7 +183,7 @@ sed -i &#39;&#39; -s &#39;s/default/myflavour/g&#39; \
 </li>
 <li>
 <p>Deploy a jail using the newly created flavour<br />
-    <div class="codehilite"><pre>ezjail-admin create -f myflavour mynewjail &#39;lo1|172.16.1.10&#39;
+    <div class="codehilite"><pre>ezjail-admin create -f myflavour mynewjail <span class="s1">&#39;lo1|172.16.1.10&#39;</span>
 </pre></div>
 </p>
 </li>
