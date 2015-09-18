@@ -1,9 +1,7 @@
 FreeBSD ezjail flavours
 =======================
 
-Ezjail is a FreeBSD wrapper for managing jails in a convenient way. Linux people
-could identify it as a Docker-ish deployment technology for FreeBSD zero-overhead
-virtualization.
+Ezjail is a FreeBSD wrapper for managing jails in a convenient way. Linux people could identify it as a Docker-ish deployment technology for FreeBSD zero-overhead virtualization.
 
 [ezjail main website](https://erdgeist.org/arts/software/ezjail/)
 
@@ -11,13 +9,9 @@ virtualization.
 How ezjail flavours do work?
 ----------------------------
 
-When creating a new jail using ezjail, a jail template can be specified. The jail
-template is composed by a set of files which will overwrite the instelled ones on
-the freshly created jail.
+When creating a new jail using ezjail, a jail template can be specified. The jail template is composed by a set of files which will overwrite the instelled ones on the freshly created jail.
 
-The main ezjail shell script is located at `/usr/local/bin/ezjail-admin`. By examining
-the shell stantences starting at line 780 the customisation of the jail installation
-process can be easily spotted:
+The main ezjail shell script is located at `/usr/local/bin/ezjail-admin`. By examining the shell stantences starting at line 780 the customisation of the jail installation process can be easily spotted:
 
 ```shell
  780
@@ -56,17 +50,9 @@ process can be easily spotted:
  813
 ```
 
-As can be seen on `/usr/local/bin/ezjail-admin:788`, the script checks for the existence of the directory
-`${ezjail_rootdir}/pkg` and the script file `ezjail.flavour` on the freshly created jail filesystem. If the
-directory `${ezjail_rootdir}/pkg` exists, all packages contained on it will be installed automatically; If
-the file `${ezjail_rootdir}/etc/rc.d/ezjail.flavour` is also present, it will be executed.
+As can be seen on `/usr/local/bin/ezjail-admin:788`, the script checks for the existence of the directory `${ezjail_rootdir}/pkg` and the script file `ezjail.flavour` on the freshly created jail filesystem. If the directory `${ezjail_rootdir}/pkg` exists, all packages contained on it will be installed automatically; If the file `${ezjail_rootdir}/etc/rc.d/ezjail.flavour` is also present, it will be executed.
 
-If the file `${ezjail_rootdir}/ezjail.flavour` exists, `ezjail-admin` understand that its a "old-style jail"
-and it will be also executed. The same applies to every script named with the form  `ezjail.flavour.*`.
-The execution of this scripts is carried out with a helper rc-script which is located on the jail's filesystem
-(`${ezjail_rootdir}/etc/rc.d/ezjail-config`). The helper rc-script (as well the rest of the `ezjail.flavour.*`
-scripts if present) will be deleted after the jail's first boot. Note that the original flavour script included at
-`${ezjail_rootdir}/etc/rc.d/ezjail.flavour` won't be deleted from the freshly installed jail.
+If the file `${ezjail_rootdir}/ezjail.flavour` exists, `ezjail-admin` understand that its a "old-style jail" and it will be also executed. The same applies to every script named with the form  `ezjail.flavour.*`. The execution of this scripts is carried out with a helper rc-script which is located on the jail's filesystem (`${ezjail_rootdir}/etc/rc.d/ezjail-config`). The helper rc-script (as well the rest of the `ezjail.flavour.*` scripts if present) will be deleted after the jail's first boot. Note that the original flavour script included at `${ezjail_rootdir}/etc/rc.d/ezjail.flavour` won't be deleted from the freshly installed jail.
 
 So, in order to customise a jail using a specifig flavour the following requeriments must be met:
 
@@ -78,12 +64,12 @@ So, in order to customise a jail using a specifig flavour the following requerim
 Creating a new ezjail flavour
 -----------------------------
 
-1.- Copy the base default flavour
+1. Copy the base default flavour
     ```
     cp -r /usr/jails/flavours/default /usr/jails/flavours/myflavour
     ```
 
-2.- Rename the ezjail post-installation script and variables
+2. Rename the ezjail post-installation script and variables
     ```
     mv /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.default \
         /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
@@ -91,22 +77,22 @@ Creating a new ezjail flavour
         /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
     ```
 
-3.- Implement the post-install inside the `flavour_setup` shell function
+3. Implement the post-install inside the `flavour_setup` shell function
     ```
     vim /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
     ```
 
-4.- Deploy a jail using the newly created flavour
+4. Deploy a jail using the newly created flavour
     ```
     ezjail-admin create -f myflavour mynewjail 'lo1|172.16.1.10'
     ```
 
-5.- Start the jail (first boot, so be patiente)
+5. Start the jail (first boot, so be patiente)
     ```
     ezjail-admin start mynewjail
     ```
 
-6.- Connect to the flavoured jail
+6. Connect to the flavoured jail
     ```
     ezjail-admin console mynewjail
     ```
