@@ -1,0 +1,155 @@
+#!/bin/sh
+#
+# BEFORE: DAEMON
+# PROVIDE: ezjail.config
+#
+# ezjail flavour
+
+. /etc/rc.subr
+
+name=ezjail.flavour
+start_cmd=flavour_setup
+
+flavour_setup() {
+
+# Remove traces of ourself
+# N.B.: Do NOT rm $0, it points to /etc/rc
+##########################
+##  rm -f "/etc/rc.d/ezjail.flavour"
+  mv "/etc/rc.d/ezjail.flavour" /
+
+# Groups
+#########
+#
+# You will probably start with some groups your users should be in
+
+# pw groupadd -q -n coders # -g 1004
+# pw groupadd -q -n sales  # -g 1005
+
+# Users
+########
+#
+# You might want to add some users. The password is to be provided in the
+# encrypted form as found in /etc/master.passwd.
+# The example password here is "admin"
+# Refer to crypt(3) and pw(8) for more information
+
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n admin -u 1001 -s /bin/sh -m -d /home/admin -G wheel -c 'Admin User' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n saag -u 1002 -s /bin/sh -m -d /home/saag -G coders -c 'Mutton Saag' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n mac -u 1002 -s /bin/sh -m -d /home/mac -G sales -c 'Big Mac' -H 0
+
+# Files
+########
+#
+# You can now give files to users just created
+
+# chown -R admin:coders /usr/local/cvsroot
+# chown -R admin:sales /usr/local/nfs/sales
+
+# Packages
+###########
+#
+# Install all packages previously put to /pkg
+# Remove package files afterwards
+
+# Install pkgs from /pkg
+[ -d /pkg ] && cd /pkg && pkg install /pkg/*
+rm -rf /pkg
+
+# Postinstall
+##############
+#
+# Your own stuff here, for example set login shells that were only
+# installed just before.
+
+# Please note, that for all network related stuff like ports,
+# package remote fetching, etc. you need a sane /etc/resolv.conf
+
+# chpass -s /usr/local/bin/bash admin
+# pkg_add -r pico
+# cd /usr/ports/sysutils/screen && make install
+
+## Install packages
+export ASSUME_ALWAYS_YES="yes"
+pkg update --yes
+pkg upgrade --yes
+pkg install --yes vim-lite
+pkg install --yes ssmtp
+pkg install --yes screen
+pkg install --yes curl
+pkg install --yes git
+pkg install --yes py27-pip
+pkg install --yes py27-virtualenv
+pkg install --yes py27-virtualenv-clone
+pkg install --yes py27-virtualenvwrapper
+
+## Configure syslog
+touch /var/log/console.log
+touch /var/log/all.log
+chmod 0600 /var/log/console.log
+chmod 0600 /var/log/all.log
+
+## Configure host name
+hname="`uname -n`.libcrack.so"
+sed -i "" -e "s/CHANGEME/${hname}/g" /etc/rc.conf
+
+## Configure SSH
+ipaddr="`ifconfig lo1 | grep inet | awk '{print $2}'`"
+sed -i "" -e "s/ListenAddress 0.0.0.0/ListenAddress ${ipaddr}/g" /etc/ssh/sshd_config
+sed -i "" -e "s/sshd_enable=\"NO\"/sshd_enable=\"YES\"/g" /etc/rc.conf
+service sshd start
+
+## Configure ssmtp
+sed -i "" -e  "s/\(^[a-z]\)/#\1/g" /etc/mail/mailer.conf
+sed -i "" -e  "s/^hostname=CHANGEME/hostname=${hname}/g"  /usr/local/etc/ssmtp/ssmtp.conf
+pw useradd ssmtp -g nogroup -h - -s /sbin/nologin -d  /usr/sbin/nologin -c "sSMTP"
+chown -R ssmtp:wheel   /usr/local/etc/ssmtp
+chown -R ssmtp:nogroup /usr/local/sbin/ssmtp
+chown    ssmtp:wheel   /usr/local/etc/ssmtp/ssmtp.conf
+chmod 4750 /usr/local/etc/ssmtp
+chmod 4555 /usr/local/sbin/ssmtp
+chmod 0640 /usr/local/etc/ssmtp/ssmtp.conf
+
+cat >> /etc/mail/mailer.conf << EOF
+
+# ssmtp
+sendmail   /usr/local/sbin/ssmtp
+send-mail  /usr/local/sbin/ssmtp
+mailq      /usr/local/sbin/ssmtp
+newaliases /usr/local/sbin/ssmtp
+hoststat   /usr/bin/true
+purgestat  /usr/bin/true
+EOF
+
+###
+### PyDash
+### https://github.com/k3oni/pydash 
+###
+
+cd /usr/local/
+
+#git clone https://github.com/k3oni/pydash.git
+
+git clone --recursive https://github.com/k3oni/pydash-django-app.git
+cd pydash-django-app
+
+pip install -r requirements.txt
+python setup.py sdist
+pip install dist/django-pydash-app-*.tar.gz
+
+# cd pydash
+# sed -i '' ''  pydash/pydash/settings.py
+
+#python manage.py syncdb
+#python manage.py runserver
+
+
+## End config
+
+}
+
+run_rc_command "$1"
+

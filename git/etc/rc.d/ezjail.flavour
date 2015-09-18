@@ -1,0 +1,330 @@
+#!/bin/sh
+#
+# BEFORE: DAEMON
+# PROVIDE: ezjail.config
+#
+# ezjail flavour
+
+. /etc/rc.subr
+
+name=ezjail.flavour
+start_cmd=flavour_setup
+
+flavour_setup() {
+
+# Remove traces of ourself
+# N.B.: Do NOT rm $0, it points to /etc/rc
+##########################
+##  rm -f "/etc/rc.d/ezjail.flavour"
+  mv "/etc/rc.d/ezjail.flavour" /
+
+# Groups
+#########
+#
+# You will probably start with some groups your users should be in
+
+# pw groupadd -q -n coders # -g 1004
+# pw groupadd -q -n sales  # -g 1005
+
+# Users
+########
+#
+# You might want to add some users. The password is to be provided in the
+# encrypted form as found in /etc/master.passwd.
+# The example password here is "admin"
+# Refer to crypt(3) and pw(8) for more information
+
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n admin -u 1001 -s /bin/sh -m -d /home/admin -G wheel -c 'Admin User' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n saag -u 1002 -s /bin/sh -m -d /home/saag -G coders -c 'Mutton Saag' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n mac -u 1002 -s /bin/sh -m -d /home/mac -G sales -c 'Big Mac' -H 0
+
+# Files
+########
+#
+# You can now give files to users just created
+
+# chown -R admin:coders /usr/local/cvsroot
+# chown -R admin:sales /usr/local/nfs/sales
+
+# Packages
+###########
+#
+# Install all packages previously put to /pkg
+# Remove package files afterwards
+
+# Install pkgs from /pkg
+[ -d /pkg ] && cd /pkg && pkg install /pkg/*
+rm -rf /pkg
+
+# Postinstall
+##############
+#
+# Your own stuff here, for example set login shells that were only
+# installed just before.
+
+# Please note, that for all network related stuff like ports,
+# package remote fetching, etc. you need a sane /etc/resolv.conf
+
+# chpass -s /usr/local/bin/bash admin
+# pkg_add -r pico
+# cd /usr/ports/sysutils/screen && make install
+
+## Install packages
+export ASSUME_ALWAYS_YES="yes"
+pkg update --yes
+pkg upgrade --yes
+pkg install --yes vim-lite
+pkg install --yes ssmtp
+pkg install --yes python27
+pkg install --yes php55
+pkg install --yes php5-fpm
+pkg install --yes php55-extensions
+pkg install --yes sqlite3
+pkg install --yes nginx
+pkg install --yes git
+pkg install --yes curl
+pkg install --yes screen
+
+## Configure syslog
+touch /var/log/console.log
+touch /var/log/all.log
+chmod 0600 /var/log/console.log
+chmod 0600 /var/log/all.log
+
+## Configure host name
+hname="`uname -n`.libcrack.so"
+sed -i "" -e "s/CHANGEME/${hname}/g" /etc/rc.conf
+
+## Configure SSH
+ipaddr="`ifconfig lo1 | grep inet | awk '{print $2}'`"
+sed -i "" -e "s/ListenAddress 0.0.0.0/ListenAddress ${ipaddr}/g" /etc/ssh/sshd_config
+sed -i "" -e "s/sshd_enable=\"NO\"/sshd_enable=\"YES\"/g" /etc/rc.conf
+service sshd start
+
+## Configure ssmtp
+sed -i "" -e  "s/\(^[a-z]\)/#\1/g" /etc/mail/mailer.conf
+sed -i "" -e  "s/^hostname=CHANGEME/hostname=${hname}/g"  /usr/local/etc/ssmtp/ssmtp.conf
+pw useradd ssmtp -g nogroup -h - -s /sbin/nologin -d  /usr/sbin/nologin -c "sSMTP"
+chown -R ssmtp:wheel   /usr/local/etc/ssmtp
+chown -R ssmtp:nogroup /usr/local/sbin/ssmtp
+chown    ssmtp:wheel   /usr/local/etc/ssmtp/ssmtp.conf
+chmod 4750 /usr/local/etc/ssmtp
+chmod 4555 /usr/local/sbin/ssmtp
+chmod 0640 /usr/local/etc/ssmtp/ssmtp.conf
+
+cat >> /etc/mail/mailer.conf << EOF
+
+# ssmtp
+sendmail   /usr/local/sbin/ssmtp
+send-mail  /usr/local/sbin/ssmtp
+mailq      /usr/local/sbin/ssmtp
+newaliases /usr/local/sbin/ssmtp
+hoststat   /usr/bin/true
+purgestat  /usr/bin/true
+EOF
+
+
+### GIT LIST ==========================================
+
+cat >> /etc/rc.conf << EOF
+
+git_daemon_enable="YES"
+git_daemon_directory="/home/git"
+git_daemon_flags="--syslog --base-path=/home/git --export-all --detach --verbose"
+
+EOF
+
+mkdir /home/git/.ssh/
+cat >> /home/git/.ssh/authorized_keys < EOF
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSLkYFphAqHA0R4X70k+33K6GBYaqC3WxUBQ70Y/1PHnhUM2D5p/TF6Sip4gFEdmjxsMwoiEJ150vuF9bV6Ryl5nclVe0VUYpmLCN2ZO3XjWnpl+UuoGhnNRBGVoSA1CthYpqyHjFW9cTnfLBw8e59tOPlHmW6jooXN1Ms9dA1HH3zp1MdISGY84SbN8IYb3z1Gol4po6xvWjXB18ezG4stZU1wHbC/48vNblt8OLj6MC+huz1sT6hYWxMcy2c16cDuy/JIwrog0fsHhqbBOqomDU2VOMWOVz15B4eV4ED2wUMR7P5WKGOQz9Wr7NLBSwxdt/+RsnfFXJ4nH2GWzVd user@machine
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCznAyiwCdtAO/vP/mYDYzd+A6Z6LoWqfdv3BzevM0w7D0TfckLKlgpxlHtwjW4qi4o8gL3C6AcXNk1A8gM3Wxy3Sy7a9busWIn/mo3w0KtXdVT1pEeWlr4d8YMwkP1Bae1zhDL84CMz4sqAUbxOl3WuoXW1fveO+bdYwofrQiclQGn4Ag8EVZj8+tjzKVpd14EJkCnjhj+e/aIJk32Pr/uptGJuLnyWE6GJgN0n+RVNbqY72drMdi3el54Ie7ORFCq1sddyqa/xaCNn5ORGO16xEOITddjAv8jnL3zdHaA+P2Xnxx5NAyJoFU2BUQLUwuHXAo4sPFF0/bdkwn6jF3H
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDmR3zvnO8hZGr0fQqX0whXKE+vQdtX0WxZVT9odD8qxZjL4KF5H/CZYGz4FnR8IFGdcSrt/CbxJn3c3gBVl/nWwBCbaLMuB5E/GgoW8jx9d9D05qBDSwrUp4NbrE1/g3bQsarWjWdbMF8u0T0cDJzA2ThK1GSjgDIWm6RsLxGrEhKnhDT0/pL4bvmV+4dhm9oYAf8X0nafBY35IkENY5w7fGKdcIa/zXnmCNBmBj+47ApCPe1uXDN8aolKgZubez2SPNhFy5ALudCJQrclBkzSGQw1StuoBBd5He9b0HFcap0p6AA0cQEu9C0Bfs+UoVjJsRmF2Rs4M0faic4jA8SL blackthorne@localhostEOF
+
+ln -s /usr/local/libexec/git-core/git-shell /home/git/git-shell-commands
+chowm git:git /home/git
+chowm -R git:git /home/git/*
+
+
+### GIT LIST ==========================================
+
+nginx_conf="/usr/local/etc/nginx.conf"
+nginx_home="/usr/local/www/nginx"
+gitlist_conf="/var/www/gitlist/config.ini"
+gitlist_home="/var/www/gitlist"
+
+git clone https://github.com/klaussilveira/gitlist.git
+
+wget --no-check-certificate https://s3.amazonaws.com/gitlist/gitlist-master.tar.gz -O /tmp/gitlist-master.tar.gz
+cd /usr/local/etc/nginx; tar -zxvf gitlist-master.tar.gz -C "$gitlist_home"
+chmod -R 777 "$gitlist_home"
+
+cd "$gitlist_home"; mkdir cache; chmod 777 cache
+wget --no-check-certificate https://github.com/davibe/gitlist-docker/raw/master/config.ini -O "$gitlist_conf"
+wget --no-check-certificate https://github.com/davibe/gitlist-docker/raw/master/nginx.conf -O "$nginx_conf"
+
+mkdir -p /repos/sentinel
+cd /repos/sentinel
+git --bare init .
+
+echo 'nginx_enable="YES"' >> /etc/rc.conf
+echo 'php_fpm_enable="YES"' >> /etc/rc.conf
+
+
+### PHP =======================================================
+
+cp /usr/local/etc/php.ini-development /usr/local/etc/php.ini
+sed -i.orig -E -e 's/^(listen = ).*$/\1\/var\/run\/php-fpm.sock/' -e 's/^;(listen\.(owner|group|mode) )/\1/g' /usr/local/etc/php-fpm.conf
+sed -i.orig -e 's_^;\(date\.timezone =\)_\1 \"America/Chicago\"_' /usr/local/etc/php.ini
+#printf 'php_fpm_enable="YES"\n' >> /etc/rc.conf
+
+
+
+### NGINX =====================================================
+
+rm /usr/local/www/nginx
+mkdir /usr/local/www/nginx
+echo '<?php phpinfo(); ?>' > /usr/local/www/nginx/index.php
+mv /usr/local/etc/nginx/nginx.conf /usr/local/etc/nginx/nginx.conf.orig
+
+cat > /usr/local/etc/nginx/nginx.conf << "EOF"
+
+worker_processes 1;
+worker_priority 15;
+
+error_log /var/log/nginx/error.log info;
+
+events {
+    worker_connections  512;
+    accept_mutex on;
+    use kqueue;
+}
+
+http {
+    include conf.d/options;
+    include mime.types;
+    default_type application/octet-stream;
+    access_log /var/log/nginx/access.log main buffer=32k;
+    include sites/*.conf;
+}
+
+EOF
+
+mkdir /usr/local/etc/nginx/conf.d /usr/local/etc/nginx/sites /var/log/nginx/
+cat > /usr/local/etc/nginx/conf.d/options with global options << "EOF"
+client_body_timeout  5s;
+client_header_timeout  5s;
+keepalive_timeout  75s;
+send_timeout  15s;
+charset  utf-8;
+gzip  off;
+gzip_proxied  any;
+ignore_invalid_headers  on;
+keepalive_requests  50;
+keepalive_disable  none;
+max_ranges  1;
+msie_padding  off;
+open_file_cache  max=1000 inactive=2h;
+open_file_cache_errors  on;
+open_file_cache_min_uses  1;
+open_file_cache_valid  1h;
+output_buffers  1 512;
+postpone_output  1440;
+read_ahead  512K;
+recursive_error_pages  on;
+reset_timedout_connection  on;
+sendfile  on;
+server_tokens  off;
+server_name_in_redirect  off;
+source_charset  utf-8;
+tcp_nodelay  on;
+tcp_nopush  off;
+gzip_disable  "MSIE [1-6]\.(?!.*SV1)";
+limit_req_zone  $binary_remote_addr  zone=gulag:1m   rate=60r/m;
+log_format  main  '$remote_addr $host $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $ssl_cipher $request_time';
+EOF
+
+cat > /usr/local/etc/nginx/sites/default.conf << "EOF" 
+server {
+    server_name domain.tld www.domain.tld;
+    limit_req zone=gulag burst=200 nodelay;
+    expires max;
+ 
+    listen 80;
+    listen 443 ssl;
+    include conf.d/ssl;
+ 
+    root /usr/local/www/nginx;
+    index index.html index.htm index.php;
+ 
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+ 
+    location / { 
+        root /usr/local/www/nginx;
+        try_files $uri $uri/ /index.php?$args;
+       location ~ \.php$ { include conf.d/php-fpm; }
+    }
+            
+    location ~ \.php$ { include conf.d/php-fpm; }
+ 
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html { root   /usr/local/www/nginx-dist; }
+}
+EOF
+
+
+cat > /usr/local/etc/nginx/conf.d/ssl << "EOF"
+ssl_certificate /usr/local/etc/nginx/ssl/self-signed.cert;
+ssl_certificate_key /usr/local/etc/nginx/ssl/self-signed.key;
+ssl_protocols SSLv3 TLSv1 TLSv1.1 TLSv1.2;
+ssl_ciphers EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:EECDH+RC4:RSA+RC4:!MD5;
+ssl_prefer_server_ciphers   on;
+EOF
+
+mkdir /usr/local/etc/nginx/ssl
+openssl genrsa -out /usr/local/etc/nginx/ssl/self-signed.key 2048
+openssl req -new -key /usr/local/etc/nginx/ssl/self-signed.key -out /usr/local/etc/nginx/ssl/self-signed.req -sha256
+openssl x509 -req -days 3650 -in /usr/local/etc/nginx/ssl/self-signed.req -signkey /usr/local/etc/nginx/ssl/self-signed.key -out /usr/local/etc/nginx/ssl/self-signed.cert -sha256
+
+cat > /usr/local/etc/nginx/conf.d/php-fpm << "EOF"
+
+fastcgi_pass unix:/var/run/php-fpm.sock;
+fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+try_files  $uri = 404;
+fastcgi_split_path_info  ^(.+\.php)(.*)$;
+fastcgi_index  index.php;
+fastcgi_intercept_errors  on;
+fastcgi_ignore_client_abort  off;
+fastcgi_connect_timeout  60;
+fastcgi_send_timeout  180;
+fastcgi_read_timeout  180;
+fastcgi_buffer_size  128k;
+fastcgi_buffers  4 256k;
+fastcgi_busy_buffers_size  256k;
+fastcgi_temp_file_write_size  256k;
+include fastcgi_params;
+EOF
+
+
+#echo 'nginx_enable="YES"' >> /etc/rc.conf
+
+
+
+service nginx start
+service php-fpm start
+service php5-fpm restart
+
+
+
+## End config
+
+}
+
+run_rc_command "$1"
+

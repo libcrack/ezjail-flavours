@@ -1,0 +1,275 @@
+#!/bin/sh
+#
+# BEFORE: DAEMON
+# PROVIDE: ezjail.config
+#
+# ezjail flavour octopress
+
+. /etc/rc.subr
+
+name=ezjail.flavour
+start_cmd=flavour_setup
+
+flavour_setup() {
+
+# Remove traces of ourself
+# N.B.: Do NOT rm $0, it points to /etc/rc
+##########################
+##  rm -f "/etc/rc.d/ezjail.flavour"
+  mv "/etc/rc.d/ezjail.flavour" /
+
+# Groups
+#########
+#
+# You will probably start with some groups your users should be in
+
+# pw groupadd -q -n coders # -g 1004
+# pw groupadd -q -n sales  # -g 1005
+
+# Users
+########
+#
+# You might want to add some users. The password is to be provided in the
+# encrypted form as found in /etc/master.passwd.
+# The example password here is "admin"
+# Refer to crypt(3) and pw(8) for more information
+
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n admin -u 1001 -s /bin/sh -m -d /home/admin -G wheel -c 'Admin User' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n saag -u 1002 -s /bin/sh -m -d /home/saag -G coders -c 'Mutton Saag' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n mac -u 1002 -s /bin/sh -m -d /home/mac -G sales -c 'Big Mac' -H 0
+
+# Files
+########
+#
+# You can now give files to users just created
+
+# chown -R admin:coders /usr/local/cvsroot
+# chown -R admin:sales /usr/local/nfs/sales
+
+# Packages
+###########
+#
+# Install all packages previously put to /pkg
+# Remove package files afterwards
+
+# Install pkgs from /pkg
+[ -d /pkg ] && cd /pkg && pkg install /pkg/*
+rm -rf /pkg
+
+# Postinstall
+##############
+#
+# Your own stuff here, for example set login shells that were only
+# installed just before.
+
+# Please note, that for all network related stuff like ports,
+# package remote fetching, etc. you need a sane /etc/resolv.conf
+
+# chpass -s /usr/local/bin/bash admin
+# pkg_add -r pico
+# cd /usr/ports/sysutils/screen && make install
+
+## Install packages
+export ASSUME_ALWAYS_YES="yes"
+pkg update
+pkg upgrade --yes
+pkg install --yes vim-lite
+pkg install --yes ssmtp
+pkg install --yes screen
+pkg install --yes curl
+
+## Configure syslog
+touch /var/log/console.log
+touch /var/log/all.log
+chmod 0600 /var/log/console.log
+chmod 0600 /var/log/all.log
+
+## Configure host name
+hname="`uname -n`.libcrack.so"
+sed -i "" -e "s/CHANGEME/${hname}/g" /etc/rc.conf
+
+## Configure SSH
+ipaddr="`ifconfig lo1 | grep inet | awk '{print $2}'`"
+sed -i "" -e "s/ListenAddress 0.0.0.0/ListenAddress ${ipaddr}/g" /etc/ssh/sshd_config
+sed -i "" -e "s/sshd_enable=\"NO\"/sshd_enable=\"YES\"/g" /etc/rc.conf
+service sshd start
+
+## Configure ssmtp
+sed -i "" -e  "s/\(^[a-z]\)/#\1/g" /etc/mail/mailer.conf
+sed -i "" -e  "s/^hostname=CHANGEME/hostname=${hname}/g"  /usr/local/etc/ssmtp/ssmtp.conf
+pw useradd ssmtp -g nogroup -h - -s /sbin/nologin -d  /usr/sbin/nologin -c "sSMTP"
+chown -R ssmtp:wheel   /usr/local/etc/ssmtp
+chown -R ssmtp:nogroup /usr/local/sbin/ssmtp
+chown    ssmtp:wheel   /usr/local/etc/ssmtp/ssmtp.conf
+chmod 4750 /usr/local/etc/ssmtp
+chmod 4555 /usr/local/sbin/ssmtp
+chmod 0640 /usr/local/etc/ssmtp/ssmtp.conf
+
+cat >> /etc/mail/mailer.conf << EOF
+
+# ssmtp
+sendmail   /usr/local/sbin/ssmtp
+send-mail  /usr/local/sbin/ssmtp
+mailq      /usr/local/sbin/ssmtp
+newaliases /usr/local/sbin/ssmtp
+hoststat   /usr/bin/true
+purgestat  /usr/bin/true
+EOF
+
+###
+### Octopress
+###
+### http://octopress.org/docs/setup/
+###
+
+##
+## Setup environment
+##
+
+gemopt="--no-rdoc --no-ri"
+cat > /root/.gemrc << EOF
+install: $gemopt
+update: $gemopt
+EOF
+
+pkg install --yes git
+pkg install --yes node
+pkg install --yes ruby
+pkg install --yes ruby21-gems
+pkg install --yes rubygem-rake
+pkg install --yes rubygem-bundler
+#pkg install --yes rbenv
+
+##
+## Install octopress
+##
+
+installdir=/usr/local/octopress
+git clone git://github.com/imathis/octopress.git $installdir
+cd $installdir
+#gem install $gemopt bundler
+bundle install
+rake install
+# generate default content
+rake generate
+rake watch
+rake preview
+
+##
+## Git deployment
+##
+## Since you cloned Octopress, you'll need to change the origin remote
+#git remote rename origin octopress
+#git remote add origin git://git.libcrack.so/repos/octopress.git
+## set your new origin as the default branch
+#git config branch.master.remote origin
+
+##
+## Install ruby bundles
+##
+# (jail octopress):/usr/local/octopress # bundle install
+# Don't run Bundler as root. Bundler can ask for sudo if it is needed, and installing your bundle as
+# root will break this application for all non-root users on this machine.
+# Fetching gem metadata from https://rubygems.org/.........
+# Resolving dependencies...
+# Using rake 10.4.2
+# Installing RedCloth 4.2.9
+# Installing blankslate 2.1.2.4
+# Installing hitimes 1.2.2
+# Installing timers 4.0.1
+# Installing celluloid 0.16.0
+# Installing chunky_png 1.3.4
+# Installing fast-stemmer 1.0.2
+# Installing classifier-reborn 2.0.3
+# Installing coffee-script-source 1.9.1
+# Installing execjs 2.4.0
+# Installing coffee-script 2.3.0
+# Installing colorator 0.1
+# Installing multi_json 1.11.0
+# Installing sass 3.4.13
+# Installing compass-core 1.0.3
+# Installing compass-import-once 1.0.5
+# Installing rb-fsevent 0.9.4
+# Installing ffi 1.9.6
+# Installing rb-inotify 0.9.5
+# Installing compass 1.0.3
+# Installing tilt 1.4.1
+# Installing haml 4.0.6
+# Installing jekyll-coffeescript 1.0.1
+# Installing jekyll-gist 1.1.0
+# Installing jekyll-paginate 1.1.0
+# Installing jekyll-sass-converter 1.3.0
+# Installing listen 2.8.5
+# Installing jekyll-watch 1.2.1
+# Installing kramdown 1.6.0
+# Installing liquid 2.6.2
+# Installing mercenary 0.3.5
+# Installing posix-spawn 0.3.10
+# Installing yajl-ruby 1.2.1
+# Installing pygments.rb 0.6.2
+# Installing redcarpet 3.2.2
+# Installing safe_yaml 1.0.4
+# Installing parslet 1.5.0
+# Installing toml 0.1.2
+# Installing jekyll 2.5.3
+# Installing jekyll-sitemap 0.8.0
+# Installing octopress-hooks 2.6.0
+# Installing octopress-date-format 2.0.2
+# Installing rack 1.6.0
+# Installing rack-protection 1.5.3
+# Installing rdiscount 2.1.8
+# Installing rubypants 0.2.0
+# Installing sass-globbing 1.0.0
+# Installing sinatra 1.4.5
+# Installing stringex 1.4.0
+# Using bundler 1.7.3
+# Your bundle is complete!
+
+# gem install $gemopt gollum          # GitHub wiki
+# gem install $gemopt asciidoctor     # AsciiDoc
+# gem install $gemopt creole          # Creole
+# gem install $gemopt redcarpet       # Markdown
+# gem install $gemopt github-markdown # GitHub Flavored Markdown
+# gem install $gemopt org-ruby        # Org
+# gem install $gemopt RedCloth        # Textile
+# gem install $gemopt wikicloth       # MediaWiki
+
+pw useradd octopress -g octopress -h - -s /sbin/nologin -m -d /usr/local/octopress -c "Octopress user"
+chown -R octopress:octopress /usr/local/octopress
+
+##
+## Configuriong options
+##
+## http://octopress.org/docs/configuring/
+##
+
+# _config.yml       # Main config (Jekyll's settings)
+# Rakefile          # Configs for deployment
+# config.rb         # Compass config
+# config.ru         # Rack config
+
+url="www.libcrack.so"
+title="non-sleep thinking"
+subtitle=""
+author=""
+simple_search=""
+description=""
+date_format="ordinal"
+subscribe_rss=""
+subscribe_email="blog@libcrack.so"
+category_feeds=""
+email=""
+
+sed -i '' -e "s/yoursite.com/$url/g" _config.yml
+sed -i '' -e "s/My Octopress Blog/$title/g" _config.yml
+sed -i '' -e "s/^(email: )/\1${email}/g" _config.yml
+
+## End config
+
+}
+
+run_rc_command "$1"
+

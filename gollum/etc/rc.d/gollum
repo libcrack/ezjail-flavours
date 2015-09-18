@@ -1,0 +1,47 @@
+#! /bin/sh
+# borja@libcrack.so
+# sabado, 14 de febrero de 2015, 18:39:53 CET
+
+# PROVIDE: gollum
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+
+#
+# Add the following lines to /etc/rc.conf to enable gollum:
+#   gollum_enable="YES"
+#
+
+. /etc/rc.subr
+
+name="gollum"
+rcvar="gollum_enable"
+
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+
+load_rc_config $name
+: ${gollum_enable:=NO}
+: ${gollum_user:=gollum}
+: ${gollum_group:=gollum}
+: ${gollum_directory:=/usr/local/gollum}
+: ${gollum_host:=0.0.0.0}
+: ${gollum_port:=4567}
+: ${gollum_args:=--live-preview --allow-uploads}
+
+gollum_start()
+{
+    command="/usr/local/bin/gollum"
+    command_args="${gollum_directory} --host ${gollum_host} --port ${gollum_port} ${gollum_args}"
+
+    echo "Starting ${name}"
+    echo "Command line: ${command} ${command_args}"
+}
+
+gollum_stop()
+{
+    echo "Stopping ${name}"
+    pid=`ps aux | grep /usr/local/bin/gollum | grep -v grep | awk '{print $2}'`
+    kill -9 "${pid}"
+}
+
+run_rc_command "$1"

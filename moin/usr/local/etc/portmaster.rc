@@ -1,0 +1,5 @@
+ALWAYS_SCRUB_DISTFILES=dopt
+PM_DEL_BUILD_ONLY=pm_dbo
+SAVE_SHARED=wopt
+PM_LOG=/var/log/portmaster.log
+PM_IGNORE_FAILED_BACKUP_PACKAGE=pm_ignore_failed_backup_package

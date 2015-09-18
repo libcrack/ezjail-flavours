@@ -1,0 +1,236 @@
+#!/bin/sh
+#
+# BEFORE: DAEMON
+# PROVIDE: ezjail.config
+#
+# borja@libcrack.so
+# viernes, 13 de febrero de 2015, 22:51:38 CET
+#
+# ezjail flavour customisation
+#
+
+. /etc/rc.subr
+
+name="$(basename $(echo "$0"|tr -d '-'))"
+start_cmd=flavour_setup
+
+flavour_setup() {
+
+# Remove traces of ourself
+# N.B.: Do NOT rm $0, it points to /etc/rc
+##########################
+
+# test -f "/etc/rc.d/$name" \
+#     && rm -f "$_"
+
+# test -f "/etc/rc.d/$name" && {
+#     mv "/etc/rc.d/$name" /
+# } || {
+#     echo "ERROR: No such file \"/etc/rc.d/$name\""
+# }
+
+# test -f "/etc/rc.d/ezjail.flavour" \
+#     && mv "/etc/rc.d/ezjail.flavour" / \
+#     || echo "ERROR: No such file \"/etc/rc.d/zjail.flavour\""
+
+test -f "/etc/rc.d/$name" && mv "/etc/rc.d/$name" / \
+    || echo "ERROR: No such file \"/etc/rc.d/$name\""
+
+
+# Groups
+#########
+#
+# You will probably start with some groups your users should be in
+
+# pw groupadd -q -n coders # -g 1004
+# pw groupadd -q -n sales  # -g 1005
+
+# Users
+########
+#
+# You might want to add some users. The password is to be provided in the
+# encrypted form as found in /etc/master.passwd.
+# The example password here is "admin"
+# Refer to crypt(3) and pw(8) for more information
+
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n admin -u 1001 -s /bin/sh -m -d /home/admin -G wheel -c 'Admin User' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n saag -u 1002 -s /bin/sh -m -d /home/saag -G coders -c 'Mutton Saag' -H 0
+# echo -n '$1$p75bbfK.$Kz3dwkoVlgZrfLZdAXQt91' |\
+# pw useradd -n mac -u 1002 -s /bin/sh -m -d /home/mac -G sales -c 'Big Mac' -H 0
+
+# Files
+########
+#
+# You can now give files to users just created
+
+# chown -R admin:coders /usr/local/cvsroot
+# chown -R admin:sales /usr/local/nfs/sales
+
+# Packages
+###########
+#
+# Install all packages previously put to /pkg
+# Remove package files afterwards
+
+# Install pkgs from /pkg
+[ -d /pkg ] && cd /pkg && pkg install /pkg/*
+rm -rf /pkg
+
+# Postinstall
+##############
+#
+# Your own stuff here, for example set login shells that were only
+# installed just before.
+
+# Please note, that for all network related stuff like ports,
+# package remote fetching, etc. you need a sane /etc/resolv.conf
+
+# chpass -s /usr/local/bin/bash admin
+# pkg_add -r pico
+# cd /usr/ports/sysutils/screen && make install
+
+## Install packages
+export ASSUME_ALWAYS_YES="yes"
+pkg update
+pkg upgrade --yes
+#pkg2ng
+pkg install --yes vim-lite
+pkg install --yes ssmtp
+pkg install --yes screen
+pkg install --yes curl
+pkg install --yes tor
+pkg install --yes privoxy
+pkg install --yes proxychains-ng
+
+## Configure syslog
+touch /var/log/console.log
+touch /var/log/all.log
+chmod 0600 /var/log/console.log
+chmod 0600 /var/log/all.log
+
+## Configure host name
+hname="`uname -n`.libcrack.so"
+sed -i "" -e "s/CHANGEME/${hname}/g" /etc/rc.conf
+
+## Configure SSH
+ipaddr="`ifconfig lo1 | grep inet | awk '{print $2}'`"
+sed -i "" -e "s/ListenAddress 0.0.0.0/ListenAddress ${ipaddr}/g" /etc/ssh/sshd_config
+sed -i "" -e "s/sshd_enable=\"NO\"/sshd_enable=\"YES\"/g" /etc/rc.conf
+service sshd start
+
+## Configure ssmtp
+sed -i "" -e  "s/\(^[a-z]\)/#\1/g" /etc/mail/mailer.conf
+sed -i "" -e  "s/^hostname=CHANGEME/hostname=${hname}/g"  /usr/local/etc/ssmtp/ssmtp.conf
+pw useradd ssmtp -g nogroup -h - -s /sbin/nologin -d  /usr/sbin/nologin -c "sSMTP"
+chown -R ssmtp:wheel   /usr/local/etc/ssmtp
+chown -R ssmtp:nogroup /usr/local/sbin/ssmtp
+chown    ssmtp:wheel   /usr/local/etc/ssmtp/ssmtp.conf
+chmod 4750 /usr/local/etc/ssmtp
+chmod 4555 /usr/local/sbin/ssmtp
+chmod 0640 /usr/local/etc/ssmtp/ssmtp.conf
+
+cat >> /etc/mail/mailer.conf << EOF
+
+# ssmtp
+sendmail   /usr/local/sbin/ssmtp
+send-mail  /usr/local/sbin/ssmtp
+mailq      /usr/local/sbin/ssmtp
+newaliases /usr/local/sbin/ssmtp
+hoststat   /usr/bin/true
+purgestat  /usr/bin/true
+EOF
+
+## TOR config
+
+cp /usr/local/etc/tor/torrc.sample /usr/local/etc/tor/torrc
+
+cat >>  /usr/local/etc/tor/torrc << EOF
+SocksPort ${ipaddr}:9050
+SocksPort 127.0.0.1:9050
+SocksPolicy accept 127.0.0.0/24
+SocksPolicy accept 172.19.18.0/23
+SocksPolicy accept 172.19.33.0/23
+SocksPolicy reject *
+Log notice file /var/log/tor.log
+DataDirectory /var/db/tor
+EOF
+
+cat >> /etc/rc.conf << EOF
+###
+### TOR config
+###
+tor_enable="YES"
+tor_conf="/usr/local/etc/tor/torrc"
+tor_user="_tor"
+tor_pidfile="/var/run/tor/tor.pid"
+tor_logfile="/var/log/tor.log"
+tor_loglevel="notice"
+tor_datadir="/var/db/tor"
+
+EOF
+
+touch /var/log/tor.log
+chmod 0600 /var/log/tor.log
+chown _tor:_tor /var/log/tor.log
+
+mkdir /var/db/tor /var/run/tor
+chmod 0700 /var/db/tor /var/run/tor
+chown _tor:_tor /var/db/tor /var/run/tor
+
+## Privoxy config
+
+cat >> /etc/rc.conf << EOF
+###
+### Privoxy config
+###
+privoxy_enable="YES"
+
+EOF
+
+cat > /usr/local/etc/privoxy/config << EOF
+user-manual /usr/local/share/doc/privoxy/user-manual
+confdir /usr/local/etc/privoxy
+logdir /var/log/privoxy
+actionsfile match-all.action # Actions that are applied to all sites and maybe overruled later on.
+actionsfile default.action   # Main actions file
+filterfile default.filter
+logfile logfile
+listen-address  ${ipaddr}:8118
+forward-socks5  /   127.0.0.1:9050 .
+toggle  1
+enable-remote-toggle  0
+enable-remote-http-toggle  0
+enable-edit-actions 0
+enforce-blocks 0
+buffer-limit 4096
+enable-proxy-authentication-forwarding 0
+forwarded-connect-retries  3
+accept-intercepted-requests 1
+allow-cgi-request-crunching 0
+split-large-forms 0
+keep-alive-timeout 15
+tolerate-pipelining 1
+socket-timeout 300
+EOF
+
+mkdir /var/log/privoxy
+touch /var/log/privoxy/logfile
+chmod 0750 /var/log/privoxy
+chown privoxy:privoxy /var/log/privoxy 
+chmod 0600 /var/log/privoxy/logfile
+chown privoxy:privoxy /var/log/privoxy/logfile
+
+cp /usr/local/share/examples/privoxy/match-all.action /usr/local/etc/privoxy/match-all.action
+
+## tortunnel
+
+curl -o /root/tortunnel-0.3.tar.gz http://www.thoughtcrime.org/software/tortunnel/tortunnel-0.3.tar.gz
+
+## End config
+
+}
+
+run_rc_command "$1"
+

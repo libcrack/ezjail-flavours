@@ -1,0 +1,47 @@
+#
+# ===================================
+# .screenrc 
+# ===================================
+#
+# see http://www4.informatik.uni-erlangen.de/~jnweiger/screen-faq.html
+# support color X terminals
+termcap  xterm 'XT:AF=\E[3%dm:AB=\E[4%dm:AX'
+terminfo xterm 'XT:AF=\E[3%p1%dm:AB=\E[4%p1%dm:AX'
+termcapinfo xterm 'XT:AF=\E[3%p1%dm:AB=\E[4%p1%dm:AX:hs:ts=\E]2;:fs=\007:ds=\E]2;screen\007'
+termcap  xtermc 'XT:AF=\E[3%dm:AB=\E[4%dm:AX'
+terminfo xtermc 'XT:AF=\E[3%p1%dm:AB=\E[4%p1%dm:AX'
+termcapinfo xtermc 'XT:AF=\E[3%p1%dm:AB=\E[4%p1%dm:AX:hs:ts=\E]2;:fs=\007:ds=\E]2;screen\007'
+
+# auto-screen support; see http://taint.org/wk/RemoteLoginAutoScreen
+# detach on hangup
+autodetach on
+# no startup msg
+startup_message off
+# always use a login shell
+shell -$SHELL
+
+# auto-log
+#logfile $HOME/.screen-logs/%Y%m%d-%n.log
+logfile $HOME/logs/screen/%Y%m%d-%n.log
+deflog on
+
+vbell off
+bell_msg '^GBell in window %n'
+
+
+defscrollback 10000
+
+defutf8 on
+
+# mouse scroll
+termcapinfo xterm* ti@:te@ 
+
+# activates window caption
+aption always 
+# good looking window bar
+aption string '%{= wk}[ %{k}%H %{k}][%= %{= wk}%?%-Lw%?%{r}(%{r}%n*%f%t%?(%u)%?%{r})%{k}%?%+Lw%?%?%= %{k}][%{b} %d/%m %{k}%c %{k}]'
+# F5 previous window
+bindkey -k k5 prev 
+# F6 next window
+bindkey -k k6 next 
+

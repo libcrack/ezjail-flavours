@@ -1,0 +1,4 @@
+*/root/.ssh/authorized_keys
+*/etc/resolv.conf
+*/etc/hosts
+ejabberd/usr/local/etc/
