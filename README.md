@@ -65,12 +65,12 @@ Creating a new ezjail flavour
 -----------------------------
 
 1. Copy the base default flavour
-    ```
+    ```shell
     cp -r /usr/jails/flavours/default /usr/jails/flavours/myflavour
     ```
 
 2. Rename the ezjail post-installation script and variables
-    ```
+    ```shell
     mv /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.default \
         /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
     sed -i '' -s 's/default/myflavour/g' \
@@ -78,22 +78,22 @@ Creating a new ezjail flavour
     ```
 
 3. Implement the post-install inside the `flavour_setup` shell function
-    ```
+    ```shell
     vim /usr/jails/flavours/myflavour/etc/rc.d/ezjail.flavour.myflavour
     ```
 
 4. Deploy a jail using the newly created flavour
-    ```
+    ```shell
     ezjail-admin create -f myflavour mynewjail 'lo1|172.16.1.10'
     ```
 
 5. Start the jail (first boot, so be patiente)
-    ```
+    ```shell
     ezjail-admin start mynewjail
     ```
 
 6. Connect to the flavoured jail
-    ```
+    ```shell
     ezjail-admin console mynewjail
     ```
 
